@@ -60,6 +60,22 @@ Release PRs from `develop` to `main` are created only by humans after the milest
 
 Reviewers must verify Clean Architecture boundaries, SOLID risks, test quality, AI usage logs, and Conventional Commits.
 
+## Architecture Guardrails
+
+Backend architecture boundaries are enforced by ESLint.
+
+- Domain cannot depend on application, infrastructure, or framework.
+- Application cannot depend on infrastructure or framework.
+- Infrastructure cannot depend on framework.
+
+Run this before opening a PR:
+
+```bash
+npm run verify
+```
+
+If `npm run lint` reports `import/no-restricted-paths`, treat it as an architecture bug, not a style warning.
+
 ## Testing Guidelines
 
 Tests must follow AAA, use `should_<expected>_when_<condition>` names, and verify observable behavior instead of private implementation details.

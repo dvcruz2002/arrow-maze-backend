@@ -66,8 +66,22 @@ GET /docs
 npm run lint
 npm run typecheck
 npm test
+npm run test:coverage
 npm run build
+npm run verify
 ```
+
+## Architecture Guardrails
+
+Clean Architecture boundaries are enforced by ESLint through `import/no-restricted-paths`.
+
+Current guarded rules:
+
+- `src/domain` must not import `src/application`, `src/infrastructure`, or `src/framework`.
+- `src/application` must not import `src/infrastructure` or `src/framework`.
+- `src/infrastructure` must not import `src/framework`.
+
+If a ticket requires changing these boundaries, stop and ask the team before editing code.
 
 ## Docker
 
@@ -78,7 +92,7 @@ docker compose up --build
 
 ## CI/CD
 
-Pull requests run lint, typecheck, tests, and build through GitHub Actions.
+Pull requests run install, lint, typecheck, tests with coverage, and build through GitHub Actions.
 
 ## Contributing
 
