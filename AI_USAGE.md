@@ -287,6 +287,50 @@ Compliance rules should live where agents cannot miss them: `AGENTS.md`, with a 
 
 ---
 
+# AI Usage Log: Agent Role Traceability Documentation
+
+## Task / Problem
+
+Clarify whether ticket work has been following the configured `.agents/` workflow and update documentation so future `ai-log/` entries explicitly record which agent roles were used and how.
+
+## Tool and Model
+
+Codex / GPT-5.
+
+## Prompt Used
+
+The user asked whether each ticket has used the configured agents from each repo and requested documentation changes so every `ai-log/` records why and how each agent was used.
+
+## Agent Roles Used
+
+| Agent | Status | How it was used | Evidence |
+| --- | --- | --- | --- |
+| Spec Partner | Referenced | Reviewed the role boundary to distinguish actual spec alignment from referencing an approved Linear spec. | `.agents/spec-partner.md`, `AGENTS.md` |
+| Planner/Slicer | Referenced | Reviewed planner responsibilities and documented when existing Linear tickets count as referenced planning rather than a new planner run. | `.agents/planner.md`, `docs/zed-worktree-agents.md` |
+| TDD Implementer | Referenced | Updated logging requirements for implementation tickets that use test-guided or TDD-style work. | `.agents/tdd-implementer.md`, `docs/ai-log-template.md` |
+| Judge | Referenced | Added guidance for recording self-audit versus a separate judge review. | `.agents/judge.md`, `docs/zed-worktree-agents.md` |
+| Mutation Tester | Referenced | Added explicit `Not used` / future `Used` guidance until mutation tooling is configured. | `.agents/mutation.md`, `docs/ai-log-template.md` |
+
+## Result Obtained
+
+Updated backend documentation so future logs must include an `Agent Roles Used` table with `Used`, `Referenced`, or `Not used` status for every configured role. Added `docs/ai-log-template.md` as the source template for future logs.
+
+## Verification
+
+- Documentation-only change; reviewed modified Markdown files.
+
+## Team Modifications Pending Human Review
+
+- Decide whether prior historical `ai-log/` entries should be retroactively annotated or left as-is to avoid overstating past agent usage.
+- Decide whether future PR templates should also require checking the `Agent Roles Used` section.
+
+## Lessons / Limitations
+
+Past work followed `AGENTS.md` constraints and role intent, but logs did not make the distinction between literal agent execution and same-session referenced roles. Future logs must be explicit and auditable.
+
+
+---
+
 # AI Log — AM-005 — Implement Identity application services
 
 **Date:** 2026-06-17
@@ -333,46 +377,65 @@ Generated 5 files:
 
 ---
 
-# AI Usage Log: Agent Role Traceability Documentation
+# AI Log — AM-006 — Implement Identity infrastructure and persistence
 
-## Task / Problem
+**Date:** 2026-06-17
+**Ticket:** MAZ-77 (AM-006)
+**Branch:** feat/identity-infrastructure-AM-006
 
-Clarify whether ticket work has been following the configured `.agents/` workflow and update documentation so future `ai-log/` entries explicitly record which agent roles were used and how.
+## Task / problem
 
-## Tool and Model
+Implement the concrete adapters in the infrastructure layer for the Identity bounded context: persist users to PostgreSQL, hash passwords with bcrypt, generate and verify JWT access tokens, and wrap operations in DB transactions. This closes the ports defined in AM-005.
 
-Codex / GPT-5.
+## Tool and model
 
-## Prompt Used
+- Tool: Claude Code (claude.ai/code)
+- Model: Claude Sonnet 4.6
 
-The user asked whether each ticket has used the configured agents from each repo and requested documentation changes so every `ai-log/` records why and how each agent was used.
+## Prompt used
+
+> comienza con el ticket AM-006, recuerda hacer todo lo que dice el claude-memory y el AGENTS.md
 
 ## Agent Roles Used
 
 | Agent | Status | How it was used | Evidence |
 | --- | --- | --- | --- |
-| Spec Partner | Referenced | Reviewed the role boundary to distinguish actual spec alignment from referencing an approved Linear spec. | `.agents/spec-partner.md`, `AGENTS.md` |
-| Planner/Slicer | Referenced | Reviewed planner responsibilities and documented when existing Linear tickets count as referenced planning rather than a new planner run. | `.agents/planner.md`, `docs/zed-worktree-agents.md` |
-| TDD Implementer | Referenced | Updated logging requirements for implementation tickets that use test-guided or TDD-style work. | `.agents/tdd-implementer.md`, `docs/ai-log-template.md` |
-| Judge | Referenced | Added guidance for recording self-audit versus a separate judge review. | `.agents/judge.md`, `docs/zed-worktree-agents.md` |
-| Mutation Tester | Referenced | Added explicit `Not used` / future `Used` guidance until mutation tooling is configured. | `.agents/mutation.md`, `docs/ai-log-template.md` |
+| Spec Partner | Referenced | Port contracts (UserRepository, PasswordHasher, TokenService) from AM-005 used as spec | src/application/identity/ports/ |
+| Planner/Slicer | Referenced | Dependency direction (infrastructure → application → domain) enforced throughout | AGENTS.md §1, §8 |
+| TDD Implementer | Used | Tests written for all four adapters; run before implementation was verified green | tests/infrastructure/ |
+| Judge | Not used | N/A |
+| Mutation Tester | Not used | N/A |
 
-## Result Obtained
+## Result obtained
 
-Updated backend documentation so future logs must include an `Agent Roles Used` table with `Used`, `Referenced`, or `Not used` status for every configured role. Added `docs/ai-log-template.md` as the source template for future logs.
+Generated 10 files:
 
-## Verification
+- `src/infrastructure/identity/BcryptPasswordHasher.ts` — Adapter implementing PasswordHasher with bcryptjs (saltRounds=12 production, configurable)
+- `src/infrastructure/identity/JwtTokenService.ts` — Adapter implementing TokenService with jsonwebtoken (7d expiry, throws UnauthorizedError on invalid)
+- `src/infrastructure/identity/PgUserRepository.ts` — Repository+Adapter implementing UserRepository with pg Pool; uses UPSERT on save, reconstitutes User aggregate from rows
+- `src/infrastructure/database/PgUnitOfWork.ts` — Unit of Work wrapping pg PoolClient transactions (BEGIN/COMMIT/ROLLBACK, always releases client)
+- `src/infrastructure/database/PgPool.ts` — Pool factory function
+- `src/infrastructure/database/migrations/001_create_users.sql` — DDL for users table (UUID PK, email/username unique, role/status with defaults, timestamps)
+- `src/framework/config/environment.ts` — Extended with databaseUrl and jwtSecret (mandatory; throws on missing)
+- `jest.setup.ts` — Injects placeholder env vars for tests that spin up the full Express app
+- `jest.config.ts` — Added setupFiles pointing to jest.setup.ts
+- `tests/infrastructure/` — 22 new unit tests across all four adapters
 
-- Documentation-only change; reviewed modified Markdown files.
+`npm run verify` passes: lint ✅ typecheck ✅ 98 tests ✅ build ✅
 
-## Team Modifications Pending Human Review
+## Team modifications pending human review
 
-- Decide whether prior historical `ai-log/` entries should be retroactively annotated or left as-is to avoid overstating past agent usage.
-- Decide whether future PR templates should also require checking the `Agent Roles Used` section.
+- Confirm that `saltRounds=12` is the team's preferred bcrypt cost factor for production.
+- Review the JWT expiry of `7d` — may need to be configurable via env var.
+- Verify that the UPSERT strategy in `PgUserRepository.save` is acceptable vs. separate INSERT/UPDATE methods.
+- Migration must be applied manually to the local and production DB before running the app — no migration runner is included yet; confirm whether the team wants to add one (e.g. `node-pg-migrate`) in a future ticket.
+- `jest.setup.ts` sets placeholder DATABASE_URL and JWT_SECRET for test isolation — confirm this approach is acceptable.
 
-## Lessons / Limitations
+## Lessons / limitations
 
-Past work followed `AGENTS.md` constraints and role intent, but logs did not make the distinction between literal agent execution and same-session referenced roles. Future logs must be explicit and auditable.
+- ESM + ts-jest requires `import type` for enum imports used only as type casts — ESLint enforces this.
+- `jest.fn()` is not available as a global in ESM mode without `import { jest } from '@jest/globals'`; using hand-rolled fake classes (FakePool, FakeClient) matches the project's existing testing style and avoids this limitation.
+- `loadEnvironment()` is called at module import time inside `createApp()`; adding mandatory env var checks broke existing API tests that don't set those vars. Fixed by adding `jest.setup.ts` with safe placeholder values.
 
 
 <!-- AI_LOG_ENTRIES_END -->
