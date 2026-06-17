@@ -348,7 +348,7 @@ Implement the application layer for the Identity bounded context: ports (interfa
 
 ## Prompt used
 
-> Arrancamos con MAZ-76 o AM-005 — implement Identity application services. The domain is complete (AM-004 Done). Create the ports and use cases needed for register and login.
+User instructed to implement ticket AM-005 (Identity application services), creating the application ports and use cases for user registration and login on top of the completed AM-004 domain layer.
 
 ## Result obtained
 
@@ -394,7 +394,7 @@ Implement the concrete adapters in the infrastructure layer for the Identity bou
 
 ## Prompt used
 
-> comienza con el ticket AM-006, recuerda hacer todo lo que dice el claude-memory y el AGENTS.md
+User instructed to implement ticket AM-006 (Identity infrastructure and persistence), following all project conventions from claude-memory.md and AGENTS.md.
 
 ## Agent Roles Used
 
@@ -457,7 +457,7 @@ Expose the Identity bounded context via HTTP: add POST /auth/register and POST /
 
 ## Prompt used
 
-> Ok, ahora continuemos con el ticket AM-007, recuerda continuar el flujo de trabajo que llevamos, leer el claude-memory.md, y con la serie de pasos que tienes ahí comenzar a trabajar, no olvides al terminar de codear ejecutar el script que actualiza el AI-USAGE.md
+User instructed to implement ticket AM-007 (expose Identity HTTP API and Swagger), following the established workflow from claude-memory.md and compiling AI_USAGE.md after coding.
 
 ## Agent Roles Used
 
