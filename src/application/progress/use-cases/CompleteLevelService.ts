@@ -11,7 +11,6 @@ import { UserId } from '../../../domain/shared/UserId.js';
 
 export interface CompleteLevelInput {
   userId: string;
-  progressId: string;
   levelId: string;
   score: number;
   timeSeconds: number;
@@ -32,7 +31,7 @@ export class CompleteLevelService implements UseCase<CompleteLevelInput, Complet
     let progress = await this.repo.findByUserId(userId);
 
     if (progress === null) {
-      progress = PlayerProgress.empty(new ProgressId(input.progressId), userId);
+      progress = PlayerProgress.empty(ProgressId.generate(), userId);
     }
 
     const result = new LevelCompletionResult(

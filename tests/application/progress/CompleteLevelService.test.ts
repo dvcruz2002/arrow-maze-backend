@@ -9,6 +9,7 @@ import { UserId } from '../../../src/domain/shared/UserId.js';
 
 const USER_1 = '550e8400-e29b-41d4-a716-446655440001';
 const LEVEL_1 = '550e8400-e29b-41d4-a716-446655440010';
+const PROGRESS_1 = '550e8400-e29b-41d4-a716-446655440020';
 
 class FakeProgressRepository implements ProgressRepository {
   stored: PlayerProgress | null = null;
@@ -23,7 +24,6 @@ class FakeEventBus implements DomainEventBus {
 
 const VALID_INPUT = {
   userId: USER_1,
-  progressId: 'progress-1',
   levelId: LEVEL_1,
   score: 100,
   timeSeconds: 30,
@@ -34,7 +34,7 @@ const VALID_INPUT = {
 describe('CompleteLevelService', () => {
   it('should_record_completion_and_save_when_progress_exists', async () => {
     const repo = new FakeProgressRepository();
-    repo.stored = PlayerProgress.empty(new ProgressId('progress-1'), UserId.create(USER_1));
+    repo.stored = PlayerProgress.empty(ProgressId.create(PROGRESS_1), UserId.create(USER_1));
     const bus = new FakeEventBus();
     const service = new CompleteLevelService(repo, bus);
 

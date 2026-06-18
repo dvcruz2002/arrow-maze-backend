@@ -18,10 +18,7 @@ export class ProgressController {
   async loadProgress(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId } = (req as AuthenticatedRequest).user;
-      const result = await this.loadUseCase.execute({
-        userId,
-        newProgressId: `progress-${userId}`,
-      });
+      const result = await this.loadUseCase.execute({ userId });
       res.status(200).json(ApiResponsePresenter.success(result));
     } catch (err) {
       next(err);
@@ -44,7 +41,6 @@ export class ProgressController {
 
       await this.completeLevelUseCase.execute({
         userId,
-        progressId: `progress-${userId}`,
         levelId,
         score: Number(score),
         timeSeconds: Number(timeSeconds),
@@ -69,7 +65,6 @@ export class ProgressController {
 
       const result = await this.syncUseCase.execute({
         userId,
-        progressId: `progress-${userId}`,
         completedLevels,
       });
 

@@ -15,6 +15,7 @@ import { LevelId } from '../../../src/domain/shared/LevelId.js';
 const USER_1 = '550e8400-e29b-41d4-a716-446655440001';
 const LEVEL_1 = '550e8400-e29b-41d4-a716-446655440010';
 const LEVEL_2 = '550e8400-e29b-41d4-a716-446655440011';
+const PROGRESS_1 = '550e8400-e29b-41d4-a716-446655440020';
 
 class FakeProgressRepository implements ProgressRepository {
   stored: PlayerProgress | null = null;
@@ -38,7 +39,7 @@ const LOCAL_LEVEL: LocalCompletedLevelDto = {
 describe('SyncProgressService', () => {
   it('should_return_merged_progress_when_remote_has_different_level', async () => {
     const repo = new FakeProgressRepository();
-    const remote = PlayerProgress.empty(new ProgressId('p-1'), UserId.create(USER_1));
+    const remote = PlayerProgress.empty(ProgressId.create(PROGRESS_1), UserId.create(USER_1));
     remote.recordCompletion(new LevelCompletionResult(
       LevelId.create(LEVEL_2), new LevelScore(100, 30, 10), CompletedAt.now(),
     ));
@@ -48,7 +49,7 @@ describe('SyncProgressService', () => {
     const service = new SyncProgressService(repo, bus);
 
     const result = await service.execute({
-      userId: USER_1, progressId: 'p-1', completedLevels: [LOCAL_LEVEL],
+      userId: USER_1, completedLevels: [LOCAL_LEVEL],
     });
 
     expect(result.completedLevels).toHaveLength(2);
@@ -56,7 +57,7 @@ describe('SyncProgressService', () => {
 
   it('should_keep_best_score_when_same_level_in_local_and_remote', async () => {
     const repo = new FakeProgressRepository();
-    const remote = PlayerProgress.empty(new ProgressId('p-1'), UserId.create(USER_1));
+    const remote = PlayerProgress.empty(ProgressId.create(PROGRESS_1), UserId.create(USER_1));
     remote.recordCompletion(new LevelCompletionResult(
       LevelId.create(LEVEL_1), new LevelScore(50, 40, 12), CompletedAt.now(),
     ));
@@ -66,7 +67,7 @@ describe('SyncProgressService', () => {
     const service = new SyncProgressService(repo, bus);
 
     const result = await service.execute({
-      userId: USER_1, progressId: 'p-1', completedLevels: [LOCAL_LEVEL],
+      userId: USER_1, completedLevels: [LOCAL_LEVEL],
     });
 
     expect(result.completedLevels[0].score).toBe(200);
@@ -78,7 +79,7 @@ describe('SyncProgressService', () => {
     const service = new SyncProgressService(repo, bus);
 
     const result = await service.execute({
-      userId: USER_1, progressId: 'p-new', completedLevels: [LOCAL_LEVEL],
+      userId: USER_1, completedLevels: [LOCAL_LEVEL],
     });
 
     expect(result.completedLevels).toHaveLength(1);

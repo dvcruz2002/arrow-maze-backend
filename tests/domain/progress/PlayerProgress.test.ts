@@ -22,7 +22,7 @@ const USER_U1 = '550e8400-e29b-41d4-a716-446655440004';
 const LEVEL_1 = '550e8400-e29b-41d4-a716-446655440010';
 const LEVEL_2 = '550e8400-e29b-41d4-a716-446655440011';
 
-const pid = new ProgressId('progress-1');
+const pid = ProgressId.create('550e8400-e29b-41d4-a716-446655440020');
 const uid = UserId.create(USER_1);
 const lid1 = LevelId.create(LEVEL_1);
 const lid2 = LevelId.create(LEVEL_2);
@@ -32,7 +32,7 @@ function makeResult(levelId: LevelId, score: number, time = 30, moves = 10): Lev
 }
 
 function makeProgressWithLevel(progressId: string, levelId: LevelId, score: number): PlayerProgress {
-  const progress = PlayerProgress.empty(new ProgressId(progressId), UserId.create(USER_U1));
+  const progress = PlayerProgress.empty(ProgressId.create('550e8400-e29b-41d4-a716-446655440020'), UserId.create(USER_U1));
   progress.recordCompletion(makeResult(levelId, score));
   progress.clearEvents();
   return progress;
@@ -161,11 +161,11 @@ describe('ProgressMergePolicy', () => {
 
   it('should_increment_version_above_max_of_both', () => {
     const local = PlayerProgress.create({
-      id: new ProgressId('p1'), userId: UserId.create(USER_U1),
+      id: ProgressId.create('550e8400-e29b-41d4-a716-446655440020'), userId: UserId.create(USER_U1),
       completedLevels: [], version: new ProgressVersion(5), updatedAt: UpdatedAt.now(),
     });
     const remote = PlayerProgress.create({
-      id: new ProgressId('p1'), userId: UserId.create(USER_U1),
+      id: ProgressId.create('550e8400-e29b-41d4-a716-446655440020'), userId: UserId.create(USER_U1),
       completedLevels: [], version: new ProgressVersion(3), updatedAt: UpdatedAt.now(),
     });
 
@@ -175,8 +175,8 @@ describe('ProgressMergePolicy', () => {
   });
 
   it('should_throw_when_merging_different_users', () => {
-    const local = PlayerProgress.empty(new ProgressId('p1'), UserId.create(USER_A));
-    const remote = PlayerProgress.empty(new ProgressId('p1'), UserId.create(USER_B));
+    const local = PlayerProgress.empty(ProgressId.create('550e8400-e29b-41d4-a716-446655440020'), UserId.create(USER_A));
+    const remote = PlayerProgress.empty(ProgressId.create('550e8400-e29b-41d4-a716-446655440020'), UserId.create(USER_B));
 
     expect(() => policy.merge(local, remote)).toThrow(ProgressUserMismatchError);
   });
