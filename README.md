@@ -46,29 +46,102 @@ docs/
 ai-log/
 ```
 
+## Design Patterns
+
+| Pattern | Layer | Key class(es) |
+| --- | --- | --- |
+| Repository | infrastructure | `PgUserRepository`, `PgLeaderboardRepository`, `PgProgressRepository` |
+| Adapter | infrastructure | All `Pg*` repos, `BcryptPasswordHasher`, `JwtTokenService` |
+| Factory | domain | `UserFactory` |
+| Unit of Work | infrastructure | `PgUnitOfWork` |
+| AOP Decorator | application | `UseCaseLoggingDecorator`, `TransactionDecorator` |
+| Template Method | application | `UseCase<Input,Output>` contract |
+| Aggregate Root | domain | `User`, `Leaderboard`, `PlayerProgress` |
+| Value Object | domain | All VOs (UserId, Email, ProgressId, LevelScore, …) |
+| Domain Event | domain | `UserRegistered`, `LevelCompletedEvent`, `LeaderboardUpdatedEvent` |
+| Merge Policy | domain | `ProgressMergePolicy` |
+
+## SOLID Principles
+
+| Principle | Where |
+| --- | --- |
+| **S** — Single Responsibility | Each use case does one thing; controllers only delegate to use cases |
+| **O** — Open/Closed | `UseCase<I,O>` interface extended by decorators without modifying use cases |
+| **L** — Liskov Substitution | All repository implementations are interchangeable behind their port interfaces |
+| **I** — Interface Segregation | `IProgressRepository`, `IDomainEventBus`, `IPasswordHasher` are narrow, separate ports |
+| **D** — Dependency Inversion | Framework layer injects concrete adapters into application use cases via constructor |
+
+## AOP Strategy
+
+Cross-cutting concerns are handled in the application layer with two decorators:
+
+- `UseCaseLoggingDecorator` — logs start, finish, duration, and sanitized error context without modifying use case code.
+- `TransactionDecorator` — wraps any use case in a `PgUnitOfWork` BEGIN/COMMIT/ROLLBACK without the use case knowing about transactions.
+
+`sanitizeLogContext` strips passwords, tokens, secrets, credentials, and authorization fields before any log is written. No PII or credentials are ever logged.
+
 ## Getting Started
+
+### Prerequisites
+
+- Node.js 22+
+- npm 10+
+- PostgreSQL 16 (local or Docker)
+
+### Environment variables
+
+Copy `.env.example` to `.env` and fill in your values (never commit `.env`):
+
+```
+DATABASE_URL=postgresql://user:pass@localhost:5432/arrow_maze
+JWT_SECRET=your-secret-here
+PORT=3000
+```
+
+### Run locally
 
 ```bash
 npm install
-npm run dev
+npm run dev       # ts-node watch mode
+```
+
+Apply the DB migrations manually before first run:
+
+```bash
+psql $DATABASE_URL -f src/infrastructure/database/migrations/001_create_users.sql
+psql $DATABASE_URL -f src/infrastructure/database/migrations/002_create_leaderboard.sql
+psql $DATABASE_URL -f src/infrastructure/database/migrations/003_create_player_progress.sql
+```
+
+### Swagger UI
+
+```
+GET http://localhost:3000/docs
 ```
 
 The API exposes:
 
-```txt
-GET /health
-GET /docs
+```
+GET  /health
+GET  /docs
+POST /auth/register
+POST /auth/login
+POST /leaderboard/scores
+GET  /leaderboard/:levelId
+GET  /progress/me
+POST /progress/levels/:levelId/complete
+PUT  /progress/sync
 ```
 
 ## Quality Commands
 
 ```bash
-npm run lint
-npm run typecheck
-npm test
-npm run test:coverage
-npm run build
-npm run verify
+npm run lint           # ESLint with architecture guardrails
+npm run typecheck      # TypeScript strict check, no emit
+npm test               # Jest (all suites)
+npm run test:coverage  # Jest with coverage report in ./coverage
+npm run build          # tsc compile to dist/
+npm run verify         # lint + typecheck + test:coverage (run before PR)
 ```
 
 ## Architecture Guardrails
