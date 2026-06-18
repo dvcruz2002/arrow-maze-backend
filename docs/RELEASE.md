@@ -13,11 +13,36 @@ Copy `.env.example` to `.env` and fill in your values (never commit `.env`):
 
 ```
 NODE_ENV=production
-DATABASE_URL=<your-cloud-database-url>
+DATABASE_URL=<your-database-url>
 DATABASE_SSL=true
 JWT_SECRET=<strong-random-secret>
 PORT=3000
 CORS_ORIGIN=<your-frontend-origin>
+```
+
+## Local Docker setup
+
+```bash
+cp .env.example .env
+# Set DATABASE_SSL=false in .env for local Docker
+docker compose up --build
+```
+
+## Local run (without Docker)
+
+```bash
+npm install
+npm run dev
+```
+
+## Database migrations
+
+Apply in order before first run:
+
+```bash
+psql $DATABASE_URL -f src/infrastructure/database/migrations/001_create_users.sql
+psql $DATABASE_URL -f src/infrastructure/database/migrations/002_create_leaderboard.sql
+psql $DATABASE_URL -f src/infrastructure/database/migrations/003_create_player_progress.sql
 ```
 
 ## Cloud database setup (Neon / Supabase / Railway / Render)
@@ -25,13 +50,7 @@ CORS_ORIGIN=<your-frontend-origin>
 1. Create a PostgreSQL instance on your chosen provider.
 2. Copy the connection string into `DATABASE_URL`.
 3. Set `DATABASE_SSL=true` (all cloud providers require SSL).
-4. Run migrations once against the cloud database:
-
-```bash
-psql $DATABASE_URL -f src/infrastructure/database/migrations/001_create_users.sql
-psql $DATABASE_URL -f src/infrastructure/database/migrations/002_create_leaderboards.sql
-psql $DATABASE_URL -f src/infrastructure/database/migrations/003_create_player_progress.sql
-```
+4. Run the migrations above against the cloud database.
 
 **Connection string formats by provider:**
 
@@ -42,21 +61,13 @@ psql $DATABASE_URL -f src/infrastructure/database/migrations/003_create_player_p
 | Railway | `postgresql://postgres:pass@host.railway.app:5432/railway` |
 | Render | `postgresql://user:pass@host.render.com/dbname` |
 
-## Local Docker setup
+## Production deployment (Docker)
 
-```bash
-cp .env.example .env
-# Set DATABASE_SSL=false in .env for local Docker
-docker compose up --build
-```
-
-## Verify before release
-
-```bash
-npm run verify   # lint + typecheck + test:coverage + build
-```
-
-All checks must pass before opening a release PR.
+1. Confirm `npm run verify` passes on the release branch.
+2. Apply any new migrations on the production database.
+3. Build the image: `docker build -t arrow-maze-backend .`
+4. Set production environment variables (never in source).
+5. Run: `docker run -p 3000:3000 --env-file .env arrow-maze-backend`
 
 ## Deployment (GitHub Actions)
 
@@ -66,6 +77,14 @@ The deploy workflow (`.github/workflows/deploy.yml`) triggers on every push to `
 - `RENDER_DEPLOY_HOOK` — if using Render
 
 See the workflow file comments for platform-specific steps.
+
+## Verify before release
+
+```bash
+npm run verify   # lint + typecheck + test:coverage + build
+```
+
+All checks must pass before opening a release PR.
 
 ## Versioning
 
