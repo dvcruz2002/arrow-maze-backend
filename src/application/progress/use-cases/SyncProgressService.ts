@@ -21,7 +21,6 @@ export interface LocalCompletedLevelDto {
 
 export interface SyncProgressInput {
   userId: string;
-  progressId: string;
   completedLevels: LocalCompletedLevelDto[];
 }
 
@@ -40,10 +39,10 @@ export class SyncProgressService implements UseCase<SyncProgressInput, SyncProgr
     let remote = await this.repo.findByUserId(userId);
 
     if (remote === null) {
-      remote = PlayerProgress.empty(new ProgressId(input.progressId), userId);
+      remote = PlayerProgress.empty(ProgressId.generate(), userId);
     }
 
-    const local = PlayerProgress.empty(new ProgressId(input.progressId), userId);
+    const local = PlayerProgress.empty(remote.id, userId);
     for (const dto of input.completedLevels) {
       local.recordCompletion(
         new LevelCompletionResult(

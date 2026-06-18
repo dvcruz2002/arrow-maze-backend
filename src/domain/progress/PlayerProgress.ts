@@ -70,7 +70,7 @@ export class PlayerProgress extends Entity<ProgressId> {
 
     if (!existing) {
       const entry = CompletedLevel.create({
-        id: new CompletedLevelId(`${this.id.value}-${key}`),
+        id: CompletedLevelId.generate(),
         levelId: result.levelId,
         bestScore: result.score,
         completedAt: result.completedAt,

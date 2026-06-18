@@ -32,7 +32,7 @@ type CompletedLevelRow = {
 
 function rowToCompletedLevel(row: CompletedLevelRow): CompletedLevel {
   return CompletedLevel.create({
-    id: new CompletedLevelId(row.id),
+    id: CompletedLevelId.create(row.id),
     levelId: LevelId.create(row.level_id),
     bestScore: new LevelScore(row.best_score, Number(row.best_time_seconds), row.best_moves_count),
     completedAt: new CompletedAt(row.completed_at),
@@ -42,7 +42,7 @@ function rowToCompletedLevel(row: CompletedLevelRow): CompletedLevel {
 
 function rowsToProgress(progressRow: ProgressRow, levelRows: CompletedLevelRow[]): PlayerProgress {
   return PlayerProgress.create({
-    id: new ProgressId(progressRow.id),
+    id: ProgressId.create(progressRow.id),
     userId: UserId.create(progressRow.user_id),
     version: new ProgressVersion(progressRow.version),
     updatedAt: new UpdatedAt(progressRow.updated_at),

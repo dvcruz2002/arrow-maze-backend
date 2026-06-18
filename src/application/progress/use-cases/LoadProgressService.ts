@@ -6,7 +6,6 @@ import { UserId } from '../../../domain/shared/UserId.js';
 
 export interface LoadProgressInput {
   userId: string;
-  newProgressId: string;
 }
 
 export interface CompletedLevelDto {
@@ -33,7 +32,7 @@ export class LoadProgressService implements UseCase<LoadProgressInput, LoadProgr
     let progress = await this.repo.findByUserId(userId);
 
     if (progress === null) {
-      progress = PlayerProgress.empty(new ProgressId(input.newProgressId), userId);
+      progress = PlayerProgress.empty(ProgressId.generate(), userId);
       await this.repo.save(progress);
     }
 
