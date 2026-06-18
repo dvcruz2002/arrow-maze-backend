@@ -42,25 +42,25 @@ export class LoginUseCase implements UseCase<LoginInput, LoginOutput> {
       throw new UnauthorizedError("Invalid credentials");
     }
 
+    if (!user.isActive) {
+      throw new ForbiddenError("Account is suspended");
+    }
+
     const isValid = await this.passwordHasher.verify(rawPassword, user.passwordHash);
 
     if (!isValid) {
       throw new UnauthorizedError("Invalid credentials");
     }
 
-    if (!user.isActive) {
-      throw new ForbiddenError("Account is suspended");
-    }
-
     const accessToken = this.tokenService.generate({
-      userId: user.id.getValue(),
+      userId: user.id.value,
       role: user.role
     });
 
     return {
       accessToken,
-      userId: user.id.getValue(),
-      username: user.username.getValue(),
+      userId: user.id.value,
+      username: user.username.value,
       role: user.role
     };
   }

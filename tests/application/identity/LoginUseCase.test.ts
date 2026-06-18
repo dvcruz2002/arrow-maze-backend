@@ -9,10 +9,10 @@ import { UserStatus } from "../../../src/domain/identity/enums/UserStatus";
 import { Email } from "../../../src/domain/identity/value-objects/Email";
 import { PasswordHash } from "../../../src/domain/identity/value-objects/PasswordHash";
 import type { RawPassword } from "../../../src/domain/identity/value-objects/RawPassword";
-import { UserId } from "../../../src/domain/identity/value-objects/UserId";
+import { UserId } from "../../../src/domain/shared/UserId.js";
 import { Username } from "../../../src/domain/identity/value-objects/Username";
 import type { Email as EmailType } from "../../../src/domain/identity/value-objects/Email";
-import type { UserId as UserIdType } from "../../../src/domain/identity/value-objects/UserId";
+import type { UserId as UserIdType } from "../../../src/domain/shared/UserId.js";
 import type { Username as UsernameType } from "../../../src/domain/identity/value-objects/Username";
 import { ForbiddenError, UnauthorizedError } from "../../../src/shared/errors/ApplicationError";
 
@@ -125,6 +125,18 @@ describe("LoginUseCase", () => {
     const useCase = new LoginUseCase(
       new FakeUserRepository(makeSuspendedUser()),
       new FakePasswordHasher(true),
+      new FakeTokenService()
+    );
+
+    // Act / Assert
+    await expect(useCase.execute(VALID_INPUT)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("should_throw_forbidden_error_when_account_is_suspended_even_if_password_is_wrong", async () => {
+    // isActive must be checked before bcrypt — suspended account must never reach bcrypt
+    const useCase = new LoginUseCase(
+      new FakeUserRepository(makeSuspendedUser()),
+      new FakePasswordHasher(false),
       new FakeTokenService()
     );
 

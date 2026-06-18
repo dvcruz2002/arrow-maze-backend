@@ -6,9 +6,7 @@ This file compiles significant AI-assisted work for the Arrow Maze backend.
 
 | Tool | Model/Version | Role |
 | --- | --- | --- |
-| Codex | GPT-5 | Project setup, configuration, documentation scaffolding (AM-001, AM-003, AM-007 partial) |
-| Claude Code | Claude Opus 4.8 | AM-002 error hierarchy, AM-020, AM-023, AM-024, AM-025 |
-| Claude Code | Claude Sonnet 4.6 | AM-004 through AM-009, AM-033 through AM-041 (Daniella Cruz) |
+| Codex | GPT-5 | Project setup, configuration, documentation scaffolding |
 
 ## Task Log
 
@@ -617,16 +615,15 @@ Generated 18 source files and 8 test files:
 
 ---
 
-# AI Log — AM-033 — Leaderboard domain model
+# AI Log — AM-010 — Level Catalog application services
 
 **Date:** 2026-06-17
-**Ticket:** MAZ-101 (AM-033)
-**Branch:** feat/leaderboard-domain-AM-033
-**Developer:** Daniella Cruz (Dev C)
+**Ticket:** MAZ-81 (AM-010)
+**Branch:** feat/level-application-AM-010
 
 ## Task / problem
 
-Model the Leaderboard bounded context as pure domain: `LeaderboardEntry` value object, `Leaderboard` aggregate with score insertion, top-N selection, and rank assignment. No HTTP, no persistence, no auth.
+Implement the application layer for the Level Catalog bounded context: repository port, six use cases (GetLevels, GetLevel, CreateLevel, PublishLevel, ArchiveLevel, UpdateLevelDefinition), and their corresponding unit tests. Also extend the Level aggregate with `archive()` and `updateDefinition()` methods required by those use cases.
 
 ## Tool and model
 
@@ -635,137 +632,221 @@ Model the Leaderboard bounded context as pure domain: `LeaderboardEntry` value o
 
 ## Prompt used
 
-User instructed to implement ticket AM-033 following the project workflow: review AGENTS.md, MEMORY.md, Linear MCP Guideline, register AI usage, validate, commit, push, PR, Linear comment.
+User instructed to continue with AM-010 following the same established workflow (read AGENTS.md, implement, ai-log, compile-ai-usage, commit, PR, Linear).
 
 ## Agent Roles Used
 
-| Agent | Status | How it was used |
-| --- | --- | --- |
-| Spec Partner | Referenced | Linear MAZ-101 spec used as acceptance criteria |
-| TDD Implementer | Used | Tests written before implementation |
-| Judge | Referenced | Pre-PR self-audit against layer boundaries |
-| Mutation Tester | Not used | StrykerJS not configured |
+| Agent | Status | How it was used | Evidence |
+| --- | --- | --- | --- |
+| Spec Partner | Referenced | Acceptance criteria from MAZ-81 used to define use case boundaries and which transitions are valid (DRAFT→PUBLISHED, PUBLISHED→ARCHIVED) | MAZ-81 description |
+| Planner/Slicer | Referenced | Application structured as port → use cases → tests; one use case file per operation following Identity layer conventions | src/application/level-catalog/ layout |
+| TDD Implementer | Used | All tests written alongside use cases; hand-rolled FakeLevelRepository and factory helpers used instead of jest.fn() due to ESM constraints | tests/application/level-catalog/ |
+| Judge | Not used | N/A |
+| Mutation Tester | Not used | N/A |
 
 ## Result obtained
 
-- `src/domain/leaderboard/value-objects/` — `EntryId` (UUID), `LevelScore` (non-negative integer), `UsernameSnapshot` (1-50 chars), `Rank` (positive integer).
-- `src/domain/leaderboard/LeaderboardEntry.ts` — immutable value object: `userId`, `score`, `timeSeconds`, `movesCount`, `submittedAt`, `usernameSnapshot`.
-- `src/domain/leaderboard/Leaderboard.ts` — Aggregate Root: `create()`, `reconstitute()`, `addEntry(entry)` idempotent by userId (keeps best score), `getTopN(n)` sorted desc by score with tied rank assignment, `pullDomainEvents()`.
-- `src/domain/leaderboard/events/LeaderboardUpdatedEvent.ts` — emitted on `addEntry`.
-- Domain tests: 28 tests covering invariants, tie-breaking, top-N limits, idempotency, event emission.
+Extended `src/domain/level-catalog/Level.ts` with:
+- `_definition` made mutable (was `readonly`)
+- `updateDefinition(definition)`: validates DRAFT status before replacing definition
+- `archive()`: validates PUBLISHED status before transitioning to ARCHIVED
 
-`npm run verify` passes.
+Created `src/application/level-catalog/ports/LevelRepository.ts`:
+- `save(level)`, `findById(id)`, `findAllPublished()`
+
+Created six use cases:
+- `GetLevelsUseCase` — returns all published levels as `LevelSummaryDto[]`
+- `GetLevelUseCase` — returns a single level by ID as `LevelDto`; throws `NotFoundError` if absent
+- `CreateLevelUseCase` — constructs all value objects from raw input and persists a new DRAFT level
+- `PublishLevelUseCase` — calls `level.publish(policy)`, saves, returns level ID
+- `ArchiveLevelUseCase` — calls `level.archive()`, saves, returns level ID
+- `UpdateLevelDefinitionUseCase` — reconstructs `LevelDefinition` from raw input and calls `level.updateDefinition()`
+
+Created `tests/application/level-catalog/helpers/levelFixtures.ts`:
+- `FakeLevelRepository` (in-memory Map with `seed()` helper and `savedLevels` inspection array)
+- `makeDraftLevel()`, `makePublishedLevel()`, `makeArchivedLevel()`, `makeSolvableDefinition()`
+- `VALID_UUID` constant
+
+Created 6 test files covering 19 test cases total.
+
+`npm run verify` passes: lint ✅ typecheck ✅ 223 tests ✅ build ✅ (+51 tests from 172 baseline)
 
 ## Team modifications pending human review
 
-- Confirm idempotency rule: "keep best score per userId" vs "allow multiple entries per userId."
-- Confirm tie-breaking: same rank for equal scores, next rank skips.
+- `GetLevelsUseCase` filters by `findAllPublished()`. If the team needs a separate admin view (e.g., list draft levels), a new use case and port method will be required.
+- `UpdateLevelDefinitionUseCase` rebuilds the full `LevelDefinition` from scratch. There is no partial-update concept — all cells must be provided on every update.
+- `PublishLevelUseCase` receives `LevelSolvabilityPolicy` as a constructor dependency. The concrete implementation will be wired in the framework layer (AM-011+). Team should confirm the DI approach.
+- `LevelDto` and `LevelSummaryDto` are defined inline in their respective use case files. If reuse grows, they may need to be moved to a shared DTOs file.
 
 ## Lessons / limitations
 
-Aggregate root's `addEntry` is idempotent to prevent duplicate leaderboard entries for the same user, keeping rankings fair.
+- ESM + ts-jest does not allow `jest.fn()` as a global or class mock. All test doubles were hand-rolled as concrete classes or in-memory implementations, which avoids the ESM mock hoisting problem entirely.
+- `LevelSolvabilityPolicy` is an abstract class, not an interface, because TypeScript interfaces cannot be subclassed in test doubles with `override` type safety. Extending the class in tests (`AlwaysSolvablePolicy`, `NeverSolvablePolicy`) keeps the type contract while enabling simple stubs.
+- `import type` is required for `LevelSolvabilityPolicy` in `PublishLevelUseCase` because it is only used as a type annotation. The ESLint `consistent-type-imports` rule enforces this.
 
 
 ---
 
-# AI Log — AM-034 — Leaderboard application ports and use cases
-
-**Date:** 2026-06-17
-**Ticket:** MAZ-102 (AM-034)
-**Branch:** feat/leaderboard-application-AM-034
-**Developer:** Daniella Cruz (Dev C)
+# AI Log - AM-033 - Model Leaderboard domain
 
 ## Task / problem
-
-Define `ILeaderboardRepository` port and implement `SubmitScoreUseCase` and `GetTopScoresUseCase` in the application layer.
+Implement the Leaderboard aggregate root and ScoreEntry entity in `src/domain` following Clean Architecture. The domain was intentionally empty pending team approval.
 
 ## Tool and model
-
-- Tool: Claude Code (claude.ai/code)
-- Model: Claude Sonnet 4.6
+Claude Code - claude-sonnet-4-6
 
 ## Prompt used
-
-User instructed to implement ticket AM-034 on top of the AM-033 domain.
+User provided the approved entity structure:
+- Leaderboard: id, levelId, entries, maxEntries, updatedAt, domainEvents
+- ScoreEntry: id, userId, levelId, usernameSnapshot, score, timeSeconds, movesCount, rank?, submittedAt
 
 ## Result obtained
+Created:
+- `src/domain/shared/DomainEvent.ts` — abstract base class
+- `src/domain/shared/Entity.ts` — abstract base class with domain event support
+- `src/domain/leaderboard/value-objects/` — 12 value objects (LeaderboardId, LevelId, EntryId, UserId, UsernameSnapshot, Score, TimeSeconds, MoveCount, Rank, MaxLeaderboardEntries, UpdatedAt, SubmittedAt)
+- `src/domain/leaderboard/ScoreEntry.ts` — entity
+- `src/domain/leaderboard/Leaderboard.ts` — aggregate root with submitEntry, ranking, and capacity logic
+- `src/domain/leaderboard/events/LeaderboardUpdatedEvent.ts`
+- `src/domain/leaderboard/errors/LeaderboardErrors.ts`
+- `tests/domain/leaderboard/Leaderboard.test.ts` — 13 tests, all passing
 
-- `src/application/leaderboard/ports/ILeaderboardRepository.ts` — `getByLevelId(levelId)`, `save(leaderboard)`.
-- `src/application/leaderboard/use-cases/SubmitScoreUseCase.ts` — loads or creates leaderboard, adds entry, saves, returns updated top 10.
-- `src/application/leaderboard/use-cases/GetTopScoresUseCase.ts` — loads leaderboard, returns top N entries.
-- Application tests: 12 tests; use hand-rolled fakes.
+All tests pass. Typecheck clean.
 
-`npm run verify` passes.
+## Ranking rule assumed
+Higher score wins; ties broken by faster time. Requires team confirmation.
+
+## Team modifications pending human review
+- Confirm ranking rule (score desc, time asc).
+- Confirm MaxLeaderboardEntries default value (currently 10).
+- Confirm whether a user can update their entry (currently throws DuplicateEntryError).
 
 ## Lessons / limitations
-
-`SubmitScoreUseCase` wrapped in `TransactionDecorator` at composition root; use case itself remains transaction-unaware.
+- `exactOptionalPropertyTypes: true` in tsconfig requires explicit undefined exclusion for optional props in spread/copy patterns.
+- Project uses ESM (`"type": "module"`); `require()` is unavailable in tests.
 
 
 ---
 
-# AI Log — AM-035 — Leaderboard infrastructure and HTTP
-
-**Date:** 2026-06-17
-**Ticket:** MAZ-103 (AM-035)
-**Branch:** feat/leaderboard-infrastructure-AM-035
-**Developer:** Daniella Cruz (Dev C)
+# AI Log - AM-034 - Implement Leaderboard application services
 
 ## Task / problem
-
-Implement `PgLeaderboardRepository`, migration SQL, `LeaderboardController` with `POST /leaderboard/scores` and `GET /leaderboard/:levelId`, wire DI, document in Swagger.
+Implement SubmitScoreService and GetLeaderboardService use cases in `src/application`
+following the team's Clean Architecture pattern, using approved service structure.
 
 ## Tool and model
+Claude Code - claude-sonnet-4-6
 
-- Tool: Claude Code (claude.ai/code)
-- Model: Claude Sonnet 4.6
+## Prompt used
+User provided the approved service structure:
+- SubmitScoreService: leaderboardRepository, rankingService, validationService, eventBus
+- GetLeaderboardService: repo (ILeaderboardRepository)
 
 ## Result obtained
+Created:
+- `src/application/aspects/UseCase.ts` — UseCase<Input, Output> interface
+- `src/application/leaderboard/ports/ILeaderboardRepository.ts`
+- `src/application/leaderboard/ports/IDomainEventBus.ts`
+- `src/application/leaderboard/services/RankingService.ts`
+- `src/application/leaderboard/services/ScoreValidationService.ts`
+- `src/application/leaderboard/use-cases/SubmitScoreService.ts`
+- `src/application/leaderboard/use-cases/GetLeaderboardService.ts`
+- `src/shared/errors/AppError.ts` and `ApplicationError.ts` (aligned with identity branch)
+- `tests/application/leaderboard/SubmitScoreService.test.ts` — 6 tests passing
+- `tests/application/leaderboard/GetLeaderboardService.test.ts` — 3 tests passing
 
-- `src/infrastructure/leaderboard/PgLeaderboardRepository.ts` — Pattern: Adapter, Repository; PostgreSQL JSONB column for entries; atomic read-modify-write with `PgUnitOfWork`.
-- `src/infrastructure/database/migrations/002_create_leaderboard.sql` — DDL: `leaderboard` table (levelId PK, entries JSONB, updatedAt).
-- `src/framework/leaderboard/LeaderboardController.ts` — validates input, delegates to use cases, returns `{ status, data }` envelope.
-- `src/framework/swagger/openApiSpec.ts` — updated with leaderboard paths and schemas.
-- Tests: 9 controller tests + 6 repository unit tests.
+All 9 tests pass. Typecheck clean.
 
-`npm run verify` passes.
+## Team modifications pending human review
+- SubmitScoreService creates a new Leaderboard if none exists for the level.
+  Confirm whether this is correct or if missing leaderboard should throw NotFoundError.
+- IDomainEventBus references shared DomainEvent base — confirm alignment with
+  identity branch's `src/domain/events/DomainEvent.ts` interface.
 
 ## Lessons / limitations
-
-JSONB column chosen for leaderboard entries to keep migration simple while the domain aggregate is the source of truth for business rules.
+- ESM + ts-jest requires explicit `import { jest } from '@jest/globals'` in test files.
+- Domain files from feat/leaderboard-domain-AM-033 were merged locally since that
+  branch is not yet in main. This branch depends on AM-033 being merged first.
 
 
 ---
 
-# AI Log — AM-036 — Player Progress domain model
-
-**Date:** 2026-06-17
-**Ticket:** MAZ-104 (AM-036)
-**Branch:** feat/progress-domain-AM-036
-**Developer:** Daniella Cruz (Dev C)
+# AI Log - AM-035 - Implement Leaderboard infrastructure
 
 ## Task / problem
-
-Model the Player Progress bounded context: `PlayerProgress` aggregate, `CompletedLevel` value object, completion recording, merge policy for offline sync conflicts.
+Implement PgLeaderboardRepository adapting ILeaderboardRepository to PostgreSQL,
+following the Repository + Adapter pattern used by identity infrastructure.
 
 ## Tool and model
+Claude Code - claude-sonnet-4-6
 
-- Tool: Claude Code (claude.ai/code)
-- Model: Claude Sonnet 4.6
+## Prompt used
+Derived from identity branch pattern (PgUserRepository, PgPool, migrations).
+User confirmed service structure in AM-033 and AM-034.
 
 ## Result obtained
+Created:
+- `src/infrastructure/database/PgPool.ts` — pg Pool factory
+- `src/infrastructure/database/migrations/002_create_leaderboards.sql`
+- `src/infrastructure/leaderboard/PgLeaderboardRepository.ts` — implements ILeaderboardRepository
+- `src/shared/errors/InfrastructureError.ts`
+- `tests/infrastructure/leaderboard/PgLeaderboardRepository.test.ts` — 5 tests passing
 
-- `src/domain/progress/value-objects/` — `ProgressId` (UUID), `CompletedLevel` (levelId, score, timeSeconds, movesCount, completedAt).
-- `src/domain/progress/PlayerProgress.ts` — Aggregate Root: `create()`, `reconstitute()`, `recordCompletion(completedLevel)` (idempotent: keeps best score per levelId), `pullDomainEvents()`.
-- `src/domain/progress/events/LevelCompletedEvent.ts`.
-- `src/domain/progress/ProgressMergePolicy.ts` — merge strategy: union of levelIds, best score wins on conflict; used for offline sync.
-- Domain tests: 22 tests.
+All tests pass. Typecheck clean.
 
-`npm run verify` passes.
+## Design decisions
+- save() uses DELETE + INSERT for entries (full replace) inside a transaction.
+  Alternative: upsert per entry. Confirm with team if partial updates are needed.
+- pg is added as a runtime dependency (was missing from package.json).
+
+## Team modifications pending human review
+- Confirm migration numbering (002) does not conflict with other branches.
+- Confirm save strategy (delete+insert vs upsert per entry).
 
 ## Lessons / limitations
+- This branch depends on feat/leaderboard-domain-AM-033 and
+  feat/leaderboard-services-AM-034 being merged first.
 
-`ProgressMergePolicy` lives in the domain (not application) because the merge rule — best score wins — is a business invariant, not an infrastructure concern.
+
+---
+
+# AI Log - AM-036 - Expose Leaderboard HTTP API and Swagger
+
+## Task / problem
+Expose LeaderboardController (POST /leaderboard/scores, GET /leaderboard/:levelId),
+leaderboardRoutes, and Swagger spec following the identity HTTP pattern.
+
+## Tool and model
+Claude Code - claude-sonnet-4-6
+
+## Prompt used
+Derived from identity HTTP branch pattern (IdentityController, identityRoutes,
+openApiSpec). Pre-checks: AGENTS.md both repos, MEMORY.md created, Linear tickets
+AM-033/034/035 confirmed complete.
+
+## Result obtained
+Created:
+- `src/framework/leaderboard/LeaderboardController.ts`
+- `src/framework/leaderboard/leaderboardRoutes.ts`
+- `src/framework/swagger/openApiSpec.ts` — extended with Leaderboard paths and schemas
+- `src/application/aspects/sanitizeLogContext.ts` — copied from identity branch
+- `src/shared/errors/index.ts` — copied from identity branch
+- `src/framework/errors/ApiResponsePresenter.ts`, `errorMiddleware.ts`, `notFoundMiddleware.ts`
+- `tests/framework/leaderboard/LeaderboardController.test.ts` — 5 tests passing
+- MEMORY.md initialized with project context, user profile, and workflow feedback
+
+All tests pass. Typecheck clean.
+
+## Team modifications pending human review
+- app.ts errorMiddleware fix uses inline no-op logger — wire real ConsoleLogger
+  once identity branch is merged.
+- Confirm route prefix convention: /leaderboard vs /api/leaderboard.
+
+## Lessons / limitations
+- Express 5 req.params type is `string | string[]`, requires explicit narrowing.
+- app.ts was outdated vs identity branch — minimal fix applied, team should
+  reconcile when merging both branches.
+- This branch depends on AM-033, AM-034, AM-035 being merged first.
 
 
 ---
@@ -822,8 +903,8 @@ Implement `PgProgressRepository`, migration SQL, `ProgressController` with `GET 
 ## Result obtained
 
 - `src/infrastructure/progress/PgProgressRepository.ts` — Pattern: Adapter, Repository; JSONB column for completedLevels.
-- `src/infrastructure/database/migrations/003_create_player_progress.sql` — DDL: `player_progress` table (userId PK, progressId UUID, completedLevels JSONB, version int, updatedAt).
-- `src/framework/progress/ProgressController.ts` — JWT auth extracted from Authorization header; validates required fields; all three endpoints.
+- `src/infrastructure/database/migrations/003_create_player_progress.sql` — DDL: `player_progress` table.
+- `src/framework/progress/ProgressController.ts` — JWT auth extracted from Authorization header; all three endpoints.
 - `src/framework/swagger/openApiSpec.ts` — updated with progress paths, auth schema, and response schemas.
 - Tests: 12 controller tests + 7 repository unit tests.
 
@@ -875,7 +956,7 @@ Extend API integration tests for leaderboard and progress endpoints: auth valida
 
 ## Task / problem
 
-Finalize the OpenAPI spec for all leaderboard and progress endpoints, add contract-test examples, and ensure the Swagger UI at `GET /docs` reflects the complete surface area.
+Finalize the OpenAPI spec for all leaderboard and progress endpoints; ensure Swagger UI at `GET /docs` reflects the complete surface area.
 
 ## Tool and model
 
@@ -884,9 +965,8 @@ Finalize the OpenAPI spec for all leaderboard and progress endpoints, add contra
 
 ## Result obtained
 
-- Updated `src/framework/swagger/openApiSpec.ts` with complete request/response schemas, auth security definitions (`BearerAuth`), and error examples for all leaderboard and progress paths.
+- Updated `src/framework/swagger/openApiSpec.ts` with complete schemas, `BearerAuth` security definition, and error examples for all leaderboard and progress paths.
 - Added `LeaderboardEntry`, `LeaderboardResponse`, `ProgressResponse`, `CompletedLevel`, `SyncRequest`, `SyncResponse` components.
-- Confirmed Swagger UI renders all documented paths at `GET /docs`.
 
 `npm run verify` passes.
 
@@ -899,14 +979,14 @@ Keeping schemas in `openApiSpec.ts` rather than YAML keeps TypeScript compile-ti
 
 # AI Log — AM-041 — Backend final validation and docs
 
-**Date:** 2026-06-17
+**Date:** 2026-06-18
 **Ticket:** MAZ-109 (AM-041)
-**Branch:** docs/backend-final-AM-041
+**Branch:** docs/final-delivery-AM-048
 **Developer:** Daniella Cruz (Dev C)
 
 ## Task / problem
 
-Complete backend README, RELEASE.md, and final verification: confirm `npm run verify` passes with all suites, coverage targets met, no linting errors introduced by Daniella's work.
+Complete backend README, RELEASE.md, and final verification for Section 6 compliance.
 
 ## Tool and model
 
@@ -915,9 +995,8 @@ Complete backend README, RELEASE.md, and final verification: confirm `npm run ve
 
 ## Result obtained
 
-- Backend `README.md` already had Architecture section; added full Getting Started, Swagger URL, environment variables, migration commands, and Quality Commands.
-- `docs/RELEASE.md` — production checklist: env vars, migration run, Docker build, CI badge, version tagging.
-- `npm run verify` passed: lint ✅ typecheck ✅ all tests ✅ build ✅
+- `README.md`: Design Patterns table, SOLID principles, AOP strategy, Getting Started with prerequisites, env vars, migration commands, Swagger URL, Quality Commands.
+- `docs/RELEASE.md` created — production checklist, Docker, versioning, CI steps.
 
 ## Lessons / limitations
 
@@ -942,7 +1021,7 @@ Delivery documentation completes the Section 6 compliance requirement. No backen
 ### AI Failure Cases
 
 - **AM-006**: ESM + ts-jest required `import type` for enums used only as type casts; AI-generated code used regular imports. Fixed during typecheck.
-- **AM-007**: `pg` Pool behavior on instantiation misunderstood by AI — no connection is established until first query call. Reviewed and accepted.
+- **AM-007**: `pg` Pool behavior on instantiation misunderstood by AI — no connection established until first query call. Reviewed and accepted.
 - **AM-038**: Initial draft placed JWT extraction in a middleware that imported from infrastructure; corrected to keep auth in the framework controller layer only, respecting `import/no-restricted-paths`.
 
 ### Reflection
