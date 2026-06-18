@@ -11,6 +11,7 @@ import { UserId as UserIdClass } from '../../../src/domain/progress/value-object
 import { LevelId } from '../../../src/domain/progress/value-objects/LevelId.js';
 import { LevelScore } from '../../../src/domain/progress/value-objects/LevelScore.js';
 import { CompletedAt } from '../../../src/domain/progress/value-objects/CompletedAt.js';
+import type { LocalCompletedLevelDto } from '../../../src/application/progress/use-cases/SyncProgressService.js';
 
 class FakeProgressRepository implements IProgressRepository {
   stored: PlayerProgress | null = null;
@@ -23,7 +24,7 @@ class FakeEventBus implements IDomainEventBus {
   async publishAll(events: ReadonlyArray<DomainEvent>): Promise<void> { this.published.push(...events); }
 }
 
-const LOCAL_LEVEL: import('../../../src/application/progress/use-cases/SyncProgressService.js').LocalCompletedLevelDto = {
+const LOCAL_LEVEL: LocalCompletedLevelDto = {
   levelId: 'level-1',
   score: 200,
   timeSeconds: 25,
