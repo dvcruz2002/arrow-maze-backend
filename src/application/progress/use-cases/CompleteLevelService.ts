@@ -1,0 +1,49 @@
+import type { UseCase } from '../../aspects/UseCase.js';
+import type { ProgressRepository } from '../ports/IProgressRepository.js';
+import type { DomainEventBus } from '../../ports/DomainEventBus.js';
+import { PlayerProgress } from '../../../domain/progress/PlayerProgress.js';
+import { LevelCompletionResult } from '../../../domain/progress/LevelCompletionResult.js';
+import { CompletedAt } from '../../../domain/progress/value-objects/CompletedAt.js';
+import { LevelId } from '../../../domain/shared/LevelId.js';
+import { LevelScore } from '../../../domain/progress/value-objects/LevelScore.js';
+import { ProgressId } from '../../../domain/progress/value-objects/ProgressId.js';
+import { UserId } from '../../../domain/shared/UserId.js';
+
+export interface CompleteLevelInput {
+  userId: string;
+  levelId: string;
+  score: number;
+  timeSeconds: number;
+  movesCount: number;
+  completedAt: string;
+}
+
+export type CompleteLevelOutput = void;
+
+export class CompleteLevelService implements UseCase<CompleteLevelInput, CompleteLevelOutput> {
+  constructor(
+    private readonly repo: ProgressRepository,
+    private readonly eventBus: DomainEventBus,
+  ) {}
+
+  async execute(input: CompleteLevelInput): Promise<CompleteLevelOutput> {
+    const userId = UserId.create(input.userId);
+    let progress = await this.repo.findByUserId(userId);
+
+    if (progress === null) {
+      progress = PlayerProgress.empty(ProgressId.generate(), userId);
+    }
+
+    const result = new LevelCompletionResult(
+      LevelId.create(input.levelId),
+      new LevelScore(input.score, input.timeSeconds, input.movesCount),
+      new CompletedAt(new Date(input.completedAt)),
+    );
+
+    progress.recordCompletion(result);
+
+    await this.repo.save(progress);
+    await this.eventBus.publishAll(progress.domainEvents);
+    progress.clearEvents();
+  }
+}
