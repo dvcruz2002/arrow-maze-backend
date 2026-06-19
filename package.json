@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --passWithNoTests",
-    "prepare": "husky"
+    "prepare": "node -e \"try{require.resolve('husky')}catch(e){process.exit(0)}\" && husky"
   },
   "dependencies": {
     "cors": "^2.8.5",
